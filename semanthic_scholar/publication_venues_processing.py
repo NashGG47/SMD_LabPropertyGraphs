@@ -6,7 +6,7 @@ from uuid import uuid4
 VENUES_SOURCE = 'data/semantic_scholar/sc_data_csv/publication-venues-sample.csv'
 OUTPUT_PATH_JOURNALS = 'data/semantic_scholar/sc_data_csv/journals.csv'
 OUTPUT_PATH_CONFERENCES = 'data/semantic_scholar/sc_data_csv/conferences.csv'
-OUTPUT_PATH_IF_FROM = 'data/semantic_scholar/sc_data_csv/is_from.csv'
+OUTPUT_PATH_EDITIONS = 'data/semantic_scholar/sc_data_csv/editions.csv'
 OUTPUT_PATH_VOLUME_FROM = 'data/semantic_scholar/sc_data_csv/volume_from.csv'
 
 def generate_uuid():
@@ -43,5 +43,5 @@ def split_csv():
     journals.to_csv(OUTPUT_PATH_JOURNALS, index=False, encoding='utf-8')
     conferences.to_csv(OUTPUT_PATH_CONFERENCES, index=False, encoding='utf-8')
     volume_from.to_csv(OUTPUT_PATH_VOLUME_FROM, index=False, encoding='utf-8')
-    is_from.to_csv(OUTPUT_PATH_IF_FROM, index=False, encoding='utf-8')
+    is_from.to_csv(OUTPUT_PATH_EDITIONS, index=False, encoding='utf-8')
 
