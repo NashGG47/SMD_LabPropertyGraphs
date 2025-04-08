@@ -283,14 +283,12 @@ def load_all():
             relation_data = {
                 "paperID": str(row.get("paperID", "")),
                 "reviewerID": str(row.get("reviewerID", "")),
-                "grade": str(row.get("grade", "")),
-                "review": str(row.get("review", ""))
             }
 
             reviewed_by_query = """
                 MATCH (a:Author {authorid: $reviewerID})
                 MATCH (p:Paper {id: $paperID})
-                MERGE (a)-[:REVIEWED_BY {grade: $grade, review: $review}]->(p)
+                MERGE (a)-[:REVIEWED_BY]->(p)
             """
             session.execute_write(run_query, reviewed_by_query, relation_data)
         #relations cited by
