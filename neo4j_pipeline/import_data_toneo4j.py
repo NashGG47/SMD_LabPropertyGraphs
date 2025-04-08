@@ -34,9 +34,6 @@ def load_all():
     driver = GraphDatabase.driver(uri, auth=(user, password))
     with driver.session() as session:
         # Constraints
-        session.execute_write(run_query, "CREATE CONSTRAINT IF NOT EXISTS FOR (p:Paper) REQUIRE p.id IS UNIQUE")
-        session.execute_write(run_query, "CREATE CONSTRAINT IF NOT EXISTS FOR (a:Person) REQUIRE a.name IS UNIQUE")
-
         # Nodes
         # Load papers
         for _, row in papers.iterrows():
