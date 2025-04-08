@@ -1,175 +1,342 @@
+import pandas as pd
+# --- Neo4j Loading ---
+def run_query(tx, query, parameters=None):
+    tx.run(query, parameters or {})
+    
+papers = pd.read_csv("data/semantic_scholar/sc_data_csv/papers-processed.csv")
+authors = pd.read_csv("data/semantic_scholar/sc_data_csv/authors-sample.csv")
+authors = authors.fillna('')
+topics = pd.read_csv("data/semantic_scholar/sc_data_csv/topics.csv")
+reviewers = pd.read_csv("data/semantic_scholar/sc_data_csv/reviewed-by.csv")
+journals = pd.read_csv("data/semantic_scholar/sc_data_csv/journals.csv")
+conferences = pd.read_csv("data/semantic_scholar/sc_data_csv/conferences.csv")
+volumes = pd.read_csv("data/semantic_scholar/sc_data_csv/volume.csv")
+is_from = pd.read_csv("data/semantic_scholar/sc_data_csv/is_from.csv")
+volume_from = pd.read_csv("data/semantic_scholar/sc_data_csv/volume_from.csv")
+editions = pd.read_csv("data/semantic_scholar/sc_data_csv/editions.csv")
+keywords = pd.read_csv("data/semantic_scholar/sc_data_csv/keywords.csv")
+related_to = pd.read_csv('data/semantic_scholar/sc_data_csv/related-to.csv')
+written_by = pd.read_csv('data/semantic_scholar/sc_data_csv/written-by.csv')
+reviewed_by = pd.read_csv('data/semantic_scholar/sc_data_csv/reviewed-by.csv')
+cited_by = pd.read_csv('data/semantic_scholar/sc_data_csv/cited-by.csv')
+
 from neo4j import GraphDatabase
+import pandas as pd
+import numpy as np
+import json
+import os
+import sys
+def load_all():
+    uri = "bolt://localhost:7687"
+    user = "neo4j"
+    password = "password"
 
-# Neo4j credentials
-AUTH = ("neo4j", "password")
-
-def importData2Database():
-    # Establish a connection to Neo4j
-    driver = GraphDatabase.driver("bolt://localhost:7687", auth=AUTH)
-
+    driver = GraphDatabase.driver(uri, auth=(user, password))
     with driver.session() as session:
-        # REMOVE ALL NODES
-        session.run('''
-        MATCH (n) DETACH DELETE n;
-        ''')
+        # Constraints
+        session.execute_write(run_query, "CREATE CONSTRAINT IF NOT EXISTS FOR (p:Paper) REQUIRE p.id IS UNIQUE")
+        session.execute_write(run_query, "CREATE CONSTRAINT IF NOT EXISTS FOR (a:Person) REQUIRE a.name IS UNIQUE")
 
-        # REMOVE CONSTRAINTS (IF EXIST)
-        session.run('''
-        DROP CONSTRAINT authorIdConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT paperIdConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT journalIdConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT conferenceIdConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT categoryIdConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT keywordConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT communityNameConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT volumeConstraint IF EXISTS;
-        ''')
-        session.run('''
-        DROP CONSTRAINT companyIdConstraint IF EXISTS;
-        ''')
+        # Nodes
+        # Load papers
+        for _, row in papers.iterrows():
+            paper_data = {
+                "id": str(row.get("corpusid", "")),
+                "externalids": str(row.get("externalids", "")),
+                "url": row.get("url", ""),
+                "title": row.get("title", ""),
+                "year": int(row.get("year", 0)) if not pd.isna(row.get("year")) else 0,
+                "referencecount": int(row.get("referencecount", 0)),
+                "citationcount": int(row.get("citationcount", 0)),
+                "influentialcitationcount": int(row.get("influentialcitationcount", 0)),
+                "isopenaccess": bool(row.get("isopenaccess", False)),
+                "s2fieldsofstudy": str(row.get("s2fieldsofstudy", "")),
+                "publicationtypes": str(row.get("publicationtypes", "")),
+                "publicationdate": row.get("publicationdate", ""),
+                "ArXiv": row.get("ArXiv", ""),
+                "MAG": row.get("MAG", ""),
+                "ACL": row.get("ACL", ""),
+                "DBLP": row.get("DBLP", ""),
+                "DOI": row.get("DOI", ""),
+                "PubMedCentral": row.get("PubMedCentral", ""),
+                "PubMed": row.get("PubMed", "")
+            }
 
-        # ADD CONSTRAINTS
-        session.run('''
-        CREATE CONSTRAINT authorIdConstraint FOR (author:Author) REQUIRE author.id IS UNIQUE;
-        ''')
+            label_query = """
+                MERGE (p:Paper {id: $id})
+                SET p.externalids = $externalids,
+                    p.url = $url,
+                    p.title = $title,
+                    p.year = $year,
+                    p.referencecount = $referencecount,
+                    p.citationcount = $citationcount,
+                    p.influentialcitationcount = $influentialcitationcount,
+                    p.isopenaccess = $isopenaccess,
+                    p.s2fieldsofstudy = $s2fieldsofstudy,
+                    p.publicationtypes = $publicationtypes,
+                    p.publicationdate = $publicationdate,
+                    p.Arxiv = $ArXiv,
+                    p.MAG = $MAG,
+                    p.ACL = $ACL,
+                    p.DBLP = $DBLP,
+                    p.doi = $DOI,
+                    p.PubMedCentral = $PubMedCentral,
+                    p.PubMed = $PubMed
+            """
 
-        session.run('''
-        CREATE CONSTRAINT paperIdConstraint FOR (paper:Paper) REQUIRE paper.id IS UNIQUE;
-        ''')
+            session.execute_write(run_query, label_query, paper_data)
+        # Load authors
+        for _, row in authors.iterrows():
+            author_data = {
+                "authorid": str(row.get("authorid", "")),
+                "externalids": str(row.get("externalids", "")),
+                "url": row.get("url", ""),
+                "name": row.get("name", ""),
+                "aliases": str(row.get("aliases", "")),
+                "homepage": row.get("homepage", ""),
+                "papercount": int(row.get("papercount", 0)),
+                "citationcount": int(row.get("citationcount", 0)),
+                "hindex": int(row.get("hindex", 0))
+            }
 
-        session.run('''
-        CREATE CONSTRAINT journalIdConstraint FOR (journal:Journal) REQUIRE journal.id IS UNIQUE;
-        ''')
+            label_query = """
+                MERGE (a:Author {authorid: $authorid})
+                SET a.name = $name,
+                    a.externalids = $externalids,
+                    a.url = $url,
+                    a.aliases = $aliases,
+                    a.homepage = $homepage,
+                    a.papercount = $papercount,
+                    a.citationcount = $citationcount,
+                    a.hindex = $hindex
+            """
 
-        session.run('''
-        CREATE CONSTRAINT conferenceIdConstraint FOR (conference:Conference) REQUIRE conference.id IS UNIQUE;
-        ''')
+            session.execute_write(run_query, label_query, author_data)
 
-        session.run('''
-        CREATE CONSTRAINT categoryIdConstraint FOR (category:Category) REQUIRE category.name IS UNIQUE;
-        ''')
 
-        session.run('''
-        CREATE CONSTRAINT keywordConstraint FOR (keyword:Keyword) REQUIRE keyword.keyword IS UNIQUE;
-        ''')
+        # Load topics
+        for _, row in topics.iterrows():
+            # Split the comma-separated string into a list and remove duplicates
+            topic_list = list(set([t.strip() for t in str(row.get("categories", "")).split(",")]))
 
-        session.run('''
-        CREATE CONSTRAINT volumeConstraint FOR (volume:Volume) REQUIRE volume.id IS UNIQUE;
-        ''')
+            for topic in topic_list:
+                topic_data = {"topic": topic}
 
-        # LOAD AUTHORS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/authors-sample.csv" AS rowAuthor
-        CREATE (a:Author {id: toInteger(rowAuthor.authorid), name: rowAuthor.name, url: rowAuthor.ur});
-        ''')
+                label_query = """
+                    MERGE (t:Topic {topic: $topic})
+                """
 
-        # LOAD PAPERS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/papers-processed.csv" AS rowPaper
-        CREATE (p:Paper {id: toInteger(rowPaper.corpusid), title: rowPaper.title, year: toInteger(rowPaper.year), url: rowPaper.url, openAcces: toBoolean(rowPaper.isopenaccess), publicationDate: date(rowPaper.publicationdate), updated: rowPaper.updated, DOI: rowPaper.DOI, PubMedCentral: rowPaper.PubMedCentral, PubMed: rowPaper.PubMed, DBLP: rowPaper.DBLP, ArXiv: rowPaper.ArXiv, ACL: rowPaper.ACL, MAG: rowPaper.MAG});
-        ''')
+                session.execute_write(run_query, label_query, topic_data)
+        
+        # Load keywords
+        for _, row in keywords.iterrows():
+            keyword_data = {
+                "name": row.get("keyword", "").strip()
+            }
 
-        # LOAD KEYWORDS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/keywords.csv" AS rowKw
-        CREATE (k:Keyword {keyword: rowKw.keyword});
-        ''')
+            label_query = """
+                MERGE (k:Keyword {name: $name})
+            """
 
-        # LOAD JOURNALS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/journals.csv" AS rowJournal
-        CREATE (j:Journal {id: rowJournal.venueID, name: rowJournal.journalName, issn: rowJournal.issn, url: rowJournal.url});
-        ''')
+            session.execute_write(run_query, label_query, keyword_data)
+        #journals
+        for _, row in journals.iterrows():
+            journal_data = {
+                "venueID": str(row.get("venueID", "")),
+                "journalName": row.get("journalName", ""),
+                "issn": row.get("issn", ""),
+                "url": row.get("url", "")
+            }
 
-        # LOAD VOLUME
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/volume_from.csv" AS row
-        MATCH (j:Journal {id: row.journalID})
-        CREATE (j)<-[:VOLUME_FROM]-(v: Volume {id: row.volumeID, year: toInteger(row.year), volume: toInteger(row.volume)});
-        ''')
+            label_query = """
+                MERGE (v:Venue {venueID: $venueID})
+                SET v.journalName = $journalName,
+                    v.issn = $issn,
+                    v.url = $url
+            """
 
-        # LOAD CONFERENCES
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/conferences.csv" AS rowConference
-        CREATE (c:Conference {id: rowConference.conferenceID, name: rowConference.conferenceName, issn: rowConference.issn, url: rowConference.url});
-        ''')
+            session.execute_write(run_query, label_query, journal_data)
 
-        # LOAD EDITIONS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/editions.csv" AS rowEdition
-        MATCH (conference:Conference {id: rowEdition.conferenceID})
-        CREATE (e:Edition {id: rowEdition.editionID, edition: toInteger(rowEdition.edition), startDate: date(rowEdition.startDate), endDate: date(rowEdition.endDate)})-[:IS_FROM]->(conference);
-        ''')
+        for _, row in conferences.iterrows():
+            conference_data = {
+                "conferenceID": str(row.get("conferenceID", "")),
+                "conferenceName": row.get("conferenceName", ""),
+                "issn": row.get("issn", ""),
+                "url": row.get("url", "")
+            }
 
-        # ADD WRITTEN_BY RELATIONS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/written-by.csv" AS rowRelation
-        MATCH (author:Author {id: toInteger(rowRelation.authorID)})
-        MATCH (paper:Paper {id: toInteger(rowRelation.paperID)})
-        CREATE (paper)-[:WRITTEN_BY {corresponding_author: toBoolean(rowRelation.is_corresponding)}]->(author);
-        ''')
+            label_query = """
+                MERGE (c:Conference {conferenceID: $conferenceID})
+                SET c.conferenceName = $conferenceName,
+                    c.issn = $issn,
+                    c.url = $url
+            """
+            session.execute_write(run_query, label_query, conference_data)
+        # Load editions and link it to conferences
+        for _, row in editions.iterrows():
+            edition_data = {
+                "editionID": str(row.get("editionID", "")),
+                "edition": row.get("edition", ""),
+                "startDate": row.get("startDate", ""),
+                "endDate": row.get("endDate", "")
+            }
 
-        # ADD REVIEWED_BY RELATIONS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/reviewed-by.csv" AS rowReview
-        MATCH (reviewer:Author {id: toInteger(rowReview.reviewerID)})
-        MATCH (paper:Paper {id: toInteger(rowReview.paperID)})
-        CREATE (paper)-[:REVIEWED_BY {with_grade: toInteger(rowReview.grade)}]->(reviewer);
-        ''')
+            label_query = """
+                MERGE (e:Edition {editionID: $editionID})
+                SET e.edition = $edition,
+                    e.startDate = $startDate,
+                    e.endDate = $endDate
+            """
 
-        # ADD BELONGS_TO RELATIONS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/belongs-to.csv" AS rowBelongs
-        MATCH (paper:Paper {id: toInteger(rowBelongs.paperID)})
-        MATCH (edition: Edition {id: rowBelongs.venueID})
-        CREATE (paper)-[:BELONGS_TO]->(edition);
-        ''')
+            session.execute_write(run_query, label_query, edition_data)
 
-        # ADD PUBLISHED_IN RELATIONS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/published-in.csv" AS row
-        MATCH (volume:Volume {id: row.venueID})
-        MATCH (paper:Paper {id: toInteger(row.paperID)})
-        CREATE (paper)-[:PUBLISHED_IN {startPage: row.startPage, endPage: row.endPage}]->(volume);
-        ''')
+        # Iterate over is_from.csv and create relationships between Edition and Conference
+        for _, row in is_from.iterrows():
+            relation_data = {
+                "editionID": str(row.get("editionID", "")),
+                "conferenceID": str(row.get("conferenceID", ""))
+            }
 
-        # ADD ABSTRACTS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM 'file:///data/semantic_scholar/sc_data_csv/withAbstracts.csv' AS rowAbstract
-        MATCH (p:Paper {id: toInteger(rowAbstract.paperID)}) 
-        SET p.abstract = rowAbstract.abstract;
-        ''')
+            # Create relationship between Edition and Conference
+            rel_query = """
+                MATCH (e:Edition {editionID: $editionID})
+                MATCH (c:Conference {conferenceID: $conferenceID})
+                MERGE (e)-[:EDITION_OF]->(c)
+            """
 
-        # ADD CITED_BY RELATIONS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/cited-by.csv" AS rowRel
-        MATCH (p1:Paper {id: toInteger(rowRel.paperID_cited)})
-        MATCH (p2:Paper {id: toInteger(rowRel.paperID_citing)})
-        CREATE (p1)-[:CITED_BY]->(p2);
-        ''')
+            session.execute_write(run_query, rel_query, relation_data)
 
-        # ADD RELATED_TO RELATIONS
-        session.run('''
-        LOAD CSV WITH HEADERS FROM "file:///data/semantic_scholar/sc_data_csv/related-to.csv" AS rowCategory
-        MATCH (p1:Paper {id: toInteger(rowCategory.paperID)})
-        MATCH (k:Keyword {keyword: rowCategory.keyword})
-        CREATE (p1)-[:RELATED_TO]->(k);
-        ''')
+        # Load volumes
+        for _, row in volumes.iterrows():
+            volume_data = {
+                "volumeID": str(row.get("volumeID", "")),
+                "year": row.get("year", ""),
+                "volume": row.get("volume", "")
+            }
 
-        # Close the session
-        session.close()
+            label_query = """
+                MERGE (v:Volume {volumeID: $volumeID})
+                SET v.year = $year,
+                    v.volume = $volume
+            """
 
+            session.execute_write(run_query, label_query, volume_data)
+
+        # Iterate over volume_from.csv and create relationships between Volume and Journal
+        for _, row in volume_from.iterrows():
+            volume_from_data = {
+                "journalID": str(row.get("journalID", "")),
+                "volumeID": str(row.get("volumeID", ""))
+            }
+
+            # Match the Volume and Journal nodes and create a relationship
+            label_query = """
+                MATCH (v:Volume {volumeID: $volumeID})
+                MATCH (j:Journal {journalID: $journalID})
+                MERGE (v)-[:PUBLISHED_IN]->(j)
+            """
+
+            session.execute_write(run_query, label_query, volume_from_data)
+
+        # Iterate over journal.csv and create Journal nodes
+        for _, row in journals.iterrows():
+            journal_data = {
+                "journalID": str(row.get("journalID", "")),
+                "journalName": row.get("journalName", ""),
+                "issn": row.get("issn", ""),
+                "url": row.get("url", "")
+            }
+
+            label_query = """
+                MERGE (j:Journal {journalID: $journalID})
+                SET j.journalName = $journalName,
+                    j.issn = $issn,
+                    j.url = $url
+            """
+
+            session.execute_write(run_query, label_query, journal_data)
+
+        # Relationships
+        #papers to keywords
+        for _, row in related_to.iterrows():
+            relation_data = {
+                "paperID": str(row.get("paperID", "")),
+                "keyword": str(row.get("keyword", ""))
+            }
+            rel_query = """
+                MATCH (p:Paper {id: $paperID})
+                MERGE (k:Keyword {name: $keyword})
+                MERGE (p)-[:RELATED_TO]->(k)
+            """
+
+            session.execute_write(run_query, rel_query, relation_data)
+        
+        #papers written by authors
+        for _, row in written_by.iterrows():
+            relation_data = {
+                "paperID": str(row.get("paperID", "")),
+                "authorID": str(row.get("authorID", "")),
+                "is_corresponding": bool(row.get("is_corresponding", False))
+            }
+
+            # Create relationship between Paper and Author, with optional is_corresponding flag
+            rel_query = """
+                MATCH (p:Paper {id: $paperID})
+                MATCH (a:Author {authorid: $authorID})
+                MERGE (p)-[:WRITTEN_BY]->(a)
+                SET p.is_corresponding = $is_corresponding
+            """
+
+            session.execute_write(run_query, rel_query, relation_data)
+        
+        #reviewed by authors that can be reviewers
+        for _, row in reviewed_by.iterrows():
+            paper_id = str(row.get("paperID", ""))
+            reviewer_id = str(row.get("reviewerID", ""))
+            grade = row.get("grade", "")
+            review = row.get("review", "")
+
+            # Check if the reviewer is not the main author
+            main_author = written_by[(written_by['paperID'] == paper_id) & (written_by['is_corresponding'] == True)]        
+            if not main_author.empty:
+                main_author_id = str(main_author.iloc[0]['authorID'])
+            else:
+                continue
+            
+            # Ensure reviewer is not the main author
+            if reviewer_id != main_author_id:
+                rel_query = """
+                    MATCH (p:Paper {id: $paperID})
+                    MATCH (a:Author {authorid: $reviewerID})
+                    MERGE (p)-[:REVIEWED_BY {grade: $grade, review: $review}]->(a)
+                """
+                
+                relation_data = {
+                    "paperID": paper_id,
+                    "reviewerID": reviewer_id,
+                    "grade": grade,
+                    "review": review
+                }
+                
+                session.execute_write(run_query, rel_query, relation_data)
+        #relations cited by
+        for _, row in cited_by.iterrows():
+            paper_id_cited = str(row.get("paperID_cited", ""))
+            paper_id_citing = str(row.get("paperID_citing", ""))
+            
+            rel_query = """
+                MATCH (cited:Paper {id: $paperID_cited})
+                MATCH (citing:Paper {id: $paperID_citing})
+                MERGE (citing)-[:CITED_BY]->(cited)
+            """
+        
+            relation_data = {
+                "paperID_cited": paper_id_cited,
+                "paperID_citing": paper_id_citing
+            }
+            session.execute_write(run_query, rel_query, relation_data)
+
+    driver.close()
+
+load_all()
+print("Graph fully loaded into Neo4j.")

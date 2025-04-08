@@ -184,3 +184,18 @@ def extract_topics():
     )
     topics_df = topics_df[topics_df['categories'] != ""]
     topics_df[['categories']].to_csv('data/semantic_scholar/sc_data_csv/topics.csv', index=False, encoding='utf-8')
+
+
+#separate editions and relation
+editions_df = pd.read_csv('data/semantic_scholar/sc_data_csv/editions.csv')
+editions_df_filtered = editions_df[['editionID', 'edition', 'startDate', 'endDate']]
+editions_df_filtered.to_csv('data/semantic_scholar/sc_data_csv/editions.csv', index=False)
+is_from_df = editions_df[['editionID', 'conferenceID']]
+is_from_df.to_csv('data/semantic_scholar/sc_data_csv/is_from.csv', index=False)
+
+#separate volumes and relation
+volume_from_df = pd.read_csv('data/semantic_scholar/sc_data_csv/volume_from.csv')
+volume_df_filtered = volume_from_df[['volumeID', 'year', 'volume']]
+volume_df_filtered.to_csv('data/semantic_scholar/sc_data_csv/volume.csv', index=False)
+is_from_df = volume_from_df[['journalID', 'volumeID']]
+is_from_df.to_csv('data/semantic_scholar/sc_data_csv/volume_from.csv', index=False)

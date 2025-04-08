@@ -1,7 +1,7 @@
 from semanthic_scholar.get_data import get_test_data, createSC_to_CSV
 from semanthic_scholar.publication_venues_processing import split_csv
 from semanthic_scholar.data_relations import generateRelations, generate_synthetic_keywords, extract_topics
-from neo4j_pipeline.import_data_toneo4j import importData2Database
+from neo4j_pipeline.import_data_toneo4j import load_all
 
 def runA2():
     get_test_data()
@@ -10,7 +10,7 @@ def runA2():
     generateRelations()
     generate_synthetic_keywords()
     extract_topics()
-    importData2Database()
+    load_all()
     print('Semantic scholar data has been processed and relations have been generated.')
 
 if __name__ == '__main__':
