@@ -1,4 +1,11 @@
+
+from neo4j import GraphDatabase
 import pandas as pd
+import numpy as np
+import json
+import os
+import sys
+
 # --- Neo4j Loading ---
 def run_query(tx, query, parameters=None):
     tx.run(query, parameters or {})
@@ -19,13 +26,8 @@ related_to = pd.read_csv('data/semantic_scholar/sc_data_csv/related-to.csv')
 written_by = pd.read_csv('data/semantic_scholar/sc_data_csv/written-by.csv')
 reviewed_by = pd.read_csv('data/semantic_scholar/sc_data_csv/reviewed-by.csv')
 cited_by = pd.read_csv('data/semantic_scholar/sc_data_csv/cited-by.csv')
+published_in = pd.read_csv('data/semantic_scholar/sc_data_csv/published-in.csv')
 
-from neo4j import GraphDatabase
-import pandas as pd
-import numpy as np
-import json
-import os
-import sys
 def load_all():
     uri = "bolt://localhost:7687"
     user = "neo4j"
@@ -36,6 +38,11 @@ def load_all():
         # Constraints
         # Nodes
         # Load papers
+        delete_query = """
+            MATCH (n)
+            DETACH DELETE n
+        """
+        session.execute_write(run_query, delete_query)
         for _, row in papers.iterrows():
             paper_data = {
                 "id": str(row.get("corpusid", "")),
@@ -139,14 +146,14 @@ def load_all():
         #journals
         for _, row in journals.iterrows():
             journal_data = {
-                "venueID": str(row.get("venueID", "")),
+                "journalID": str(row.get("journalID", "")),
                 "journalName": row.get("journalName", ""),
                 "issn": row.get("issn", ""),
                 "url": row.get("url", "")
             }
 
             label_query = """
-                MERGE (v:Venue {venueID: $venueID})
+                MERGE (v:Journal {journalID: $journalID})
                 SET v.journalName = $journalName,
                     v.issn = $issn,
                     v.url = $url
@@ -219,26 +226,10 @@ def load_all():
 
             session.execute_write(run_query, label_query, volume_data)
 
-        # Iterate over volume_from.csv and create relationships between Volume and Journal
-        for _, row in volume_from.iterrows():
-            volume_from_data = {
-                "journalID": str(row.get("journalID", "")),
-                "volumeID": str(row.get("volumeID", ""))
-            }
-
-            # Match the Volume and Journal nodes and create a relationship
-            label_query = """
-                MATCH (v:Volume {volumeID: $volumeID})
-                MATCH (j:Journal {journalID: $journalID})
-                MERGE (v)-[:PUBLISHED_IN]->(j)
-            """
-
-            session.execute_write(run_query, label_query, volume_from_data)
-
         # Iterate over journal.csv and create Journal nodes
         for _, row in journals.iterrows():
             journal_data = {
-                "journalID": str(row.get("journalID", "")),
+                "journalID": str(row.get("venueID", "")),
                 "journalName": row.get("journalName", ""),
                 "issn": row.get("issn", ""),
                 "url": row.get("url", "")
@@ -287,35 +278,21 @@ def load_all():
             session.execute_write(run_query, rel_query, relation_data)
         
         #reviewed by authors that can be reviewers
+        
         for _, row in reviewed_by.iterrows():
-            paper_id = str(row.get("paperID", ""))
-            reviewer_id = str(row.get("reviewerID", ""))
-            grade = row.get("grade", "")
-            review = row.get("review", "")
+            relation_data = {
+                "paperID": str(row.get("paperID", "")),
+                "reviewerID": str(row.get("reviewerID", "")),
+                "grade": str(row.get("grade", "")),
+                "review": str(row.get("review", ""))
+            }
 
-            # Check if the reviewer is not the main author
-            main_author = written_by[(written_by['paperID'] == paper_id) & (written_by['is_corresponding'] == True)]        
-            if not main_author.empty:
-                main_author_id = str(main_author.iloc[0]['authorID'])
-            else:
-                continue
-            
-            # Ensure reviewer is not the main author
-            if reviewer_id != main_author_id:
-                rel_query = """
-                    MATCH (p:Paper {id: $paperID})
-                    MATCH (a:Author {authorid: $reviewerID})
-                    MERGE (p)-[:REVIEWED_BY {grade: $grade, review: $review}]->(a)
-                """
-                
-                relation_data = {
-                    "paperID": paper_id,
-                    "reviewerID": reviewer_id,
-                    "grade": grade,
-                    "review": review
-                }
-                
-                session.execute_write(run_query, rel_query, relation_data)
+            reviewed_by_query = """
+                MATCH (a:Author {authorid: $reviewerID})
+                MATCH (p:Paper {id: $paperID})
+                MERGE (a)-[:REVIEWED_BY {grade: $grade, review: $review}]->(p)
+            """
+            session.execute_write(run_query, reviewed_by_query, relation_data)
         #relations cited by
         for _, row in cited_by.iterrows():
             paper_id_cited = str(row.get("paperID_cited", ""))
@@ -332,7 +309,39 @@ def load_all():
                 "paperID_citing": paper_id_citing
             }
             session.execute_write(run_query, rel_query, relation_data)
+        # Iterate over volume_from.csv and create relationships between Volume and Journal
+        for _, row in volume_from.iterrows():
+            
 
+            volume_from_data = {
+                "journalID": str(row.get("journalID", "")).strip(),
+                "volumeID": str(row.get("volumeID", "")).strip()
+            }
+            label_query = """
+                MATCH (v:Volume {volumeID: $volumeID})
+                MATCH (j:Journal {journalID: $journalID})
+                MERGE (v)-[:VOLUME_FROM]->(j)
+            """
+
+            session.execute_write(run_query, label_query, volume_from_data)
+
+        # Iterate over volumes and papers
+        for _, row in published_in.iterrows():
+            published_in_data = {
+                "venueID": str(row.get("venueID", "")),
+                "paperID": str(row.get("paperID", "")),
+                "startPage": str(row.get("startPage", "")),
+                "endPage": str(row.get("endPage", ""))
+            }
+
+            # Check if paper and journal exist
+            label_query = """
+                MATCH (p:Paper {id: $paperID})
+                MATCH (j:Journal {journalID: $venueID})
+                MERGE (p)-[r:PUBLISHED_IN_VENUE {startPage: $startPage, endPage: $endPage}]->(j)
+            """
+
+            session.execute_write(run_query, label_query, published_in_data)
     driver.close()
 
 load_all()
