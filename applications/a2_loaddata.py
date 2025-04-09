@@ -15,6 +15,6 @@ def runA2_load_data():
     print('Semantic scholar data has been processed and relations have been generated.')
 
 
-if __name__ == '__main__':
-    runA2_load_data()
-    print('Pipeline A2 has been executed successfully.')
+# if __name__ == '__main__':
+#     runA2_load_data()
+#     print('Pipeline A2 has been executed successfully.')

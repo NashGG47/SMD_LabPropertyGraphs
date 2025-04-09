@@ -70,6 +70,3 @@ def run_louvain():
             print(f"Paper ID: {record['paperId']}, Community ID: {record['communityId']}")
 
         session.run("CALL gds.graph.drop('papers-graph')")
-
-run_pagerank()
-run_louvain()
