@@ -112,5 +112,5 @@ def recommender():
         driver.close()
         print("\nSession closed.")
 
-if __name__ == "__main__":
-    recommender()
+# if __name__ == "__main__":
+#     recommender()

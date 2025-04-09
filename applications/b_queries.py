@@ -118,5 +118,5 @@ def main():
     finally:
         driver.close()
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
