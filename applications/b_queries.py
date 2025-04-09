@@ -18,10 +18,10 @@ PASSWORD = "password"
 # --- Query Definitions ---
 def query_top3_cited_papers_by_journal(tx):
     """
-    For each Journal (via the PUBLISHED_IN_VENUE relationship), find the top 3 most cited papers.
+    For each Journal (via the PUBLISHED_ON relationship), find the top 3 most cited papers.
     """
     cypher = """
-    MATCH (j:Journal)<-[:PUBLISHED_IN_VENUE]-(p:Paper)
+    MATCH (j:Journal)<-[:PUBLISHED_ON]-(p:Paper)
     OPTIONAL MATCH (p)<-[:CITED_BY]-(cp:Paper)
     WITH j, p, count(cp) AS citationCount
     ORDER BY j.journalName, citationCount DESC
@@ -35,7 +35,7 @@ def query_journal_communities(tx):
     For each Journal, find its community defined as authors that have published at least 4 papers in that Journal.
     """
     cypher = """
-    MATCH (a:Author)<-[:WRITTEN_BY]-(p:Paper)-[:PUBLISHED_IN_VENUE]->(j:Journal)
+    MATCH (a:Author)<-[:WRITTEN_BY]-(p:Paper)-[:PUBLISHED_ON]->(j:Journal)
     WITH j, a, count(p) AS paperCount
     WHERE paperCount >= 4
     RETURN j.journalName AS Journal, collect(DISTINCT a.name) AS Community
@@ -47,7 +47,7 @@ def query_journal_impact_factor(tx):
     Computes the impact factor for each Journal as the average number of citations per paper.
     """
     cypher = """
-    MATCH (j:Journal)<-[:PUBLISHED_IN_VENUE]-(p:Paper)
+    MATCH (j:Journal)<-[:PUBLISHED_ON]-(p:Paper)
     OPTIONAL MATCH (p)<-[:CITED_BY]-(cp:Paper)
     WITH j, p, count(cp) AS citationCount
     WITH j, avg(citationCount) AS ImpactFactor

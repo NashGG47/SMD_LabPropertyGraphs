@@ -110,7 +110,8 @@ def generate_synthetic_keywords():
     keyword_pool = [
         'machine learning', 'artificial intelligence', 'deep learning', 'neural networks',
         'data science', 'computer vision', 'natural language processing', 'reinforcement learning',
-        'big data', 'robotics', 'internet of things', 'cloud computing', 'data mining', 'pattern recognition'
+        'big data', 'robotics', 'internet of things', 'cloud computing', 'data mining', 'pattern recognition', 'data management', 'indexing', 'data modeling',
+        'big data', 'data processing', 'data storage', 'data querying'
     ]
     synthetic_keywords = []
     for paper_id in papers['corpusid']:
@@ -233,12 +234,18 @@ def create_publish_on():
     papers_df = pd.read_csv('data/semantic_scholar/sc_data_csv/papers-processed.csv')
     conference_ids = conferences_df['conferenceID'].dropna().unique().tolist()
     corpus_ids = papers_df['corpusid'].dropna().unique().tolist()
+    if len(corpus_ids) > len(conference_ids):
+        corpus_ids = corpus_ids[:len(conference_ids)]
     random.shuffle(conference_ids)
     random.shuffle(corpus_ids)
     publish_data = []
-
-    for corpusid in corpus_ids:
-        conference_id = random.choice(conference_ids)
+    for i, corpusid in enumerate(corpus_ids):
+        conference_id = conference_ids[i]
         publish_data.append({'corpusid': corpusid, 'conferenceID': conference_id})
     publish_on_df = pd.DataFrame(publish_data)
     publish_on_df.to_csv('data/semantic_scholar/sc_data_csv/publish_on.csv', index=False)
+
+
+publish = pd.read_csv('data/semantic_scholar/sc_data_csv/published-in.csv')
+df_unique_papers = publish.drop_duplicates(subset='paperID', keep='first')
+df_unique_papers.to_csv('data/semantic_scholar/sc_data_csv/published-in.csv', index=False)

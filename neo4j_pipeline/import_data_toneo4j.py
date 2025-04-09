@@ -29,6 +29,7 @@ cited_by = pd.read_csv('data/semantic_scholar/sc_data_csv/cited-by.csv')
 published_in = pd.read_csv('data/semantic_scholar/sc_data_csv/published-in.csv')
 based_on = pd.read_csv('data/semantic_scholar/sc_data_csv/based_on.csv')
 published_on = pd.read_csv('data/semantic_scholar/sc_data_csv/publish_on.csv')
+abstracts = pd.read_csv('data/semantic_scholar/sc_data_csv/abstracts-sample.csv')
 
 def load_all():
     uri = "bolt://localhost:7687"
@@ -45,7 +46,8 @@ def load_all():
             DETACH DELETE n
         """
         session.execute_write(run_query, delete_query)
-        for _, row in papers.iterrows():
+        papers_with_abstract = papers.merge(abstracts[['corpusid', 'abstract']], on='corpusid', how='left')
+        for _, row in papers_with_abstract.iterrows():
             paper_data = {
                 "id": str(row.get("corpusid", "")),
                 "externalids": str(row.get("externalids", "")),
@@ -65,7 +67,8 @@ def load_all():
                 "DBLP": row.get("DBLP", ""),
                 "DOI": row.get("DOI", ""),
                 "PubMedCentral": row.get("PubMedCentral", ""),
-                "PubMed": row.get("PubMed", "")
+                "PubMed": row.get("PubMed", ""),
+                "abstract": row.get("abstract", "") 
             }
 
             label_query = """
@@ -87,9 +90,9 @@ def load_all():
                     p.DBLP = $DBLP,
                     p.doi = $DOI,
                     p.PubMedCentral = $PubMedCentral,
-                    p.PubMed = $PubMed
+                    p.PubMed = $PubMed,
+                    p.abstract = $abstract
             """
-
             session.execute_write(run_query, label_query, paper_data)
         # Load authors
         for _, row in authors.iterrows():
@@ -380,5 +383,4 @@ def load_all():
             session.execute_write(run_query, label_query, published_in_data)
     driver.close()
 
-load_all()
-print("Graph fully loaded into Neo4j.")
+    print("Graph fully loaded into Neo4j.")
