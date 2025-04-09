@@ -187,14 +187,17 @@ def load_all():
                 "editionID": str(row.get("editionID", "")),
                 "edition": row.get("edition", ""),
                 "startDate": row.get("startDate", ""),
-                "endDate": row.get("endDate", "")
+                "endDate": row.get("endDate", ""),
+                "venue": row.get("venue", "")
+
             }
 
             label_query = """
                 MERGE (e:Edition {editionID: $editionID})
                 SET e.edition = $edition,
                     e.startDate = $startDate,
-                    e.endDate = $endDate
+                    e.endDate = $endDate,
+                    e.venue = $venue
             """
 
             session.execute_write(run_query, label_query, edition_data)

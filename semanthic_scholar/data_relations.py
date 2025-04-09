@@ -245,7 +245,24 @@ def create_publish_on():
     publish_on_df = pd.DataFrame(publish_data)
     publish_on_df.to_csv('data/semantic_scholar/sc_data_csv/publish_on.csv', index=False)
 
+def addcities():
+    cities = ['Barcelona', 'London', 'New York', 'Paris', 'Berlin', 'Tokyo', 'San Francisco', 
+              'Madrid', 'Brisbane', 'Toronto', 'Los Angeles', 'Chicago', 'Seattle', 'Boston', 
+              'Amsterdam', 'Singapore', 'Hong Kong', 'Sydney', 'Dublin', 'Zurich']
+    with open('data/semantic_scholar/sc_data_csv/editions.csv', mode='r', newline='') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames + ['venue'] 
+        updated_rows = []
+
+        for row in reader:
+            row['venue'] = random.choice(cities)
+            updated_rows.append(row)
+    with open('data/semantic_scholar/sc_data_csv/editions.csv', mode='w', newline='') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(updated_rows)
 
 publish = pd.read_csv('data/semantic_scholar/sc_data_csv/published-in.csv')
 df_unique_papers = publish.drop_duplicates(subset='paperID', keep='first')
 df_unique_papers.to_csv('data/semantic_scholar/sc_data_csv/published-in.csv', index=False)
+
