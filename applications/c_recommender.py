@@ -51,9 +51,9 @@ def recommender():
             session.run('''
             MATCH (c:Community {name: 'database'})-[:DEFINED_BY]->(k:Keyword)
             MATCH (p:Paper)-[:RELATED_TO]->(k)
-            MATCH (p)-[:PUBLISHED_ON|BELONGS_TO]->(v)
+            MATCH (p)-[:PUBLISHED_ON|PUBLISHED_ON_C]->(v)
             WITH v, COUNT(DISTINCT p) AS papersWithKW, c
-            MATCH (allPapers:Paper)-[:PUBLISHED_ON|BELONGS_TO]->(v)
+            MATCH (allPapers:Paper)-[:PUBLISHED_ON|PUBLISHED_ON_C]->(v)
             WITH v, papersWithKW, COUNT(DISTINCT allPapers) AS totalPapers, c
             WHERE totalPapers > 0 AND (toFloat(papersWithKW) / totalPapers) >= 0.9
             MERGE (v)-[:IN_COMMUNITY]->(c)
@@ -62,7 +62,7 @@ def recommender():
             # Step 3 - Identify Top-100 Papers
             session.run('''
             MATCH (v)-[:IN_COMMUNITY]->(c:Community {name: 'database'})
-            MATCH (p:Paper)-[:PUBLISHED_ON|BELONGS_TO]->(v)
+            MATCH (p:Paper)-[:PUBLISHED_ON|PUBLISHED_ON_C]->(v)
             MATCH (p)<-[:CITED_BY]-(citing:Paper)
             WITH p, COUNT(citing) AS numCitations
             ORDER BY numCitations DESC
