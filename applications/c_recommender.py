@@ -105,7 +105,7 @@ def recommender():
                 print(f"- {record['Author']}")
 
     except Exception as e:
-        print("❌ An error occurred while executing the recommender:")
+        print("An error occurred while executing the recommender:")
         print(e)
 
     finally:
