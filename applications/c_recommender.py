@@ -34,6 +34,11 @@ def recommender():
             DETACH DELETE c
             ''')
 
+            session.run('''
+            MATCH (a:Author)
+            REMOVE a.potential_database_com_rev, a.database_com_guru
+            ''')
+
             # Step 1 - Define the Research Community
             session.run('''
             CREATE CONSTRAINT communityNameConstraint FOR (c:Community) REQUIRE c.name IS UNIQUE;
