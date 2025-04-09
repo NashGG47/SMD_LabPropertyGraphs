@@ -13,5 +13,5 @@ with open(input_file, 'r', encoding='utf-8', errors='ignore') as fin, \
         cleaned_line = entity_pattern.sub('', line)
         fout.write(cleaned_line)
 
-print("✔️ Archivo limpio guardado como:", output_file)
+print("Archivo limpio guardado como:", output_file)
 
