@@ -27,6 +27,8 @@ written_by = pd.read_csv('data/semantic_scholar/sc_data_csv/written-by.csv')
 reviewed_by = pd.read_csv('data/semantic_scholar/sc_data_csv/reviewed-by.csv')
 cited_by = pd.read_csv('data/semantic_scholar/sc_data_csv/cited-by.csv')
 published_in = pd.read_csv('data/semantic_scholar/sc_data_csv/published-in.csv')
+based_on = pd.read_csv('data/semantic_scholar/sc_data_csv/based_on.csv')
+published_on = pd.read_csv('data/semantic_scholar/sc_data_csv/publish_on.csv')
 
 def load_all():
     uri = "bolt://localhost:7687"
@@ -258,6 +260,28 @@ def load_all():
             """
 
             session.execute_write(run_query, rel_query, relation_data)
+        #laod topics relation
+        for _, row in based_on.iterrows():
+            paperID = str(row.get("corpusid", ""))
+            categories = row.get("category", "")
+            
+            # Split and clean topic list
+            topic_list = list(set([t.strip() for t in categories.split(";")]))
+
+            for topic in topic_list:
+                relation_data = {
+                    "paperID": paperID,
+                    "topic": topic
+                }
+
+                rel_query = """
+                    MERGE (t:Topic {topic: $topic})
+                    WITH t
+                    MATCH (p:Paper {id: $paperID})
+                    MERGE (p)-[:BASED_ON]->(t)
+                """
+
+                session.execute_write(run_query, rel_query, relation_data)
         
         #papers written by authors
         for _, row in written_by.iterrows():
@@ -336,7 +360,21 @@ def load_all():
             label_query = """
                 MATCH (p:Paper {id: $paperID})
                 MATCH (j:Journal {journalID: $venueID})
-                MERGE (p)-[r:PUBLISHED_IN_VENUE {startPage: $startPage, endPage: $endPage}]->(j)
+                MERGE (p)-[r:PUBLISHED_ON {startPage: $startPage, endPage: $endPage}]->(j)
+            """
+
+            session.execute_write(run_query, label_query, published_in_data)
+
+        # Iterate over volumes and papers
+        for _, row in published_on.iterrows():
+            published_in_data = {
+                "conferenceID": str(row.get("conferenceID", "")),
+                "corpusID": str(row.get("corpusid", ""))
+            }
+            label_query = """
+                MATCH (p:Paper {id: $corpusID})
+                MATCH (c:Conference {conferenceID: $conferenceID})
+                MERGE (p)-[r:PUBLISHED_ON_C]->(c)
             """
 
             session.execute_write(run_query, label_query, published_in_data)

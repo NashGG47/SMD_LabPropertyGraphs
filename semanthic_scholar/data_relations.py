@@ -3,6 +3,7 @@ import random
 import json
 from pathlib import Path
 import ast
+import csv
 
 # Paths
 BASE_PATH = Path('data/semantic_scholar/sc_data_csv')
@@ -199,3 +200,45 @@ def edit_some_editions_volumes():
     volume_df_filtered.to_csv('data/semantic_scholar/sc_data_csv/volume.csv', index=False)
     is_from_df = volume_from_df[['journalID', 'volumeID']]
     is_from_df.to_csv('data/semantic_scholar/sc_data_csv/volume_from.csv', index=False)
+
+def define_topics():
+    topics_df = pd.read_csv('data/semantic_scholar/sc_data_csv/papers-processed.csv')
+
+    cleaned_data = []
+
+    for _, row in topics_df.iterrows():
+        corpusid = row['corpusid']
+        raw_field = row['s2fieldsofstudy']
+
+        if pd.isna(raw_field) or not isinstance(raw_field, str):
+            continue
+
+        try:
+            field_list = ast.literal_eval(raw_field)
+            categories = [entry['category'] for entry in field_list if 'category' in entry]
+            categories_str = '; '.join(categories)
+            cleaned_data.append({'corpusid': corpusid, 'category': categories_str})
+        except Exception as e:
+            continue
+    result_df = pd.DataFrame(cleaned_data)
+    result_df.to_csv(
+        'data/semantic_scholar/sc_data_csv/based_on.csv',
+        index=False,
+        quoting=csv.QUOTE_NONNUMERIC  # Wrap all string fields in double quotes
+    )
+
+
+def create_publish_on():
+    conferences_df = pd.read_csv('data/semantic_scholar/sc_data_csv/conferences.csv')
+    papers_df = pd.read_csv('data/semantic_scholar/sc_data_csv/papers-processed.csv')
+    conference_ids = conferences_df['conferenceID'].dropna().unique().tolist()
+    corpus_ids = papers_df['corpusid'].dropna().unique().tolist()
+    random.shuffle(conference_ids)
+    random.shuffle(corpus_ids)
+    publish_data = []
+
+    for corpusid in corpus_ids:
+        conference_id = random.choice(conference_ids)
+        publish_data.append({'corpusid': corpusid, 'conferenceID': conference_id})
+    publish_on_df = pd.DataFrame(publish_data)
+    publish_on_df.to_csv('data/semantic_scholar/sc_data_csv/publish_on.csv', index=False)
