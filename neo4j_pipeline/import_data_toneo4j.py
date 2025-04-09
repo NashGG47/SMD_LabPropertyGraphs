@@ -301,8 +301,9 @@ def load_all():
             rel_query = """
                 MATCH (p:Paper {id: $paperID})
                 MATCH (a:Author {authorid: $authorID})
-                MERGE (p)-[:WRITTEN_BY]->(a)
-                SET p.is_corresponding = $is_corresponding
+                MERGE (p)-[r:WRITTEN_BY]->(a)
+                ON CREATE SET r.is_corresponding = $is_corresponding
+                ON MATCH SET r.is_corresponding = $is_corresponding
             """
 
             session.execute_write(run_query, rel_query, relation_data)
